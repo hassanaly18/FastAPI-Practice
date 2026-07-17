@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from requests import Session
 from database import engine, SessionLocal
 from models import Base, Student
@@ -19,11 +19,64 @@ def get_students(db: Session = Depends(get_db)):
     students = db.query(Student).all()
     return students
 
+@app.post("/students", response_model=schemas.Student)
+def add_student(student: schemas.StudentsCreate, db: Session = Depends(get_db)):
+    new_student = Student(
+        name = student.name,
+        age = student.age,
+        city = student.city
+    )
+    
+    db.add(new_student)
+    db.commit()
+    db.refresh(new_student)
+    return new_student
+
+@app.get("/students/{id}")
+def get_student(id: int, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.id == id).first()
+    
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found"
+        )
+    
+    return student
+
+@app.put("/students/{id}", response_model=schemas.StudentsCreate)
+def update_student(id: int, updated: schemas.StudentsCreate, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.id == id).first()
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found"
+        )
+    
+    student.name = updated.name
+    student.age = updated.age
+    student.city = updated.city
+    
+    db.commit()
+    db.refresh(student)
+    return student
 
 
-
-
-
+@app.delete("/students/{id}")
+def delete_student(id: int, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.id == id).first()
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found"
+        )
+    
+    db.delete(student)
+    db.commit()
+    
+    return {
+        "message": "Student deleted successfully"
+    }
 
 
 
